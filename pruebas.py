@@ -1,22 +1,23 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import FileResponse
 import cv2
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from PIL import Image
 import io
-import os
 
 app = FastAPI()
 
 @app.post("/procesar_imagen")
-async def procesar_imagen(file: UploadFile = File(...)):
+async def procesar_imagen(
+    file: UploadFile = File(...),
+    user_id: str = Form(...)  # se recibe desde el formulario HTTP
+):
     # Leer la imagen desde la solicitud
     contents = await file.read()
     imagen_original = Image.open(io.BytesIO(contents))
 
-    # Recortar la imagen (ajusta estos valores según la imagen original)
+    # Recortar la imagen (ajusta estos valores según tu gráfico)
     x_inicio, y_inicio, x_fin, y_fin = 27, 330, 580, 1120
     imagen_recortada = imagen_original.crop((x_inicio, y_inicio, x_fin, y_fin))
 
@@ -76,14 +77,15 @@ async def procesar_imagen(file: UploadFile = File(...)):
 
     niveles_glucosa = [int((4450 - y) / 12) for (x, y) in intersections]
 
+    # Crear DataFrame con las columnas requeridas
     df = pd.DataFrame({
-        "Tiempo": time_labels,
-        "X": [p[0] for p in intersections],
-        "Y": [p[1] for p in intersections],
-        "Glucosa": niveles_glucosa
+        "id": range(1, len(intersections) + 1),
+        "user_id": user_id,
+        "timestamp": time_labels,
+        "glucose_level": niveles_glucosa
     })
 
-    # Guardar el CSV
+    # Guardar CSV con las columnas exactas
     output_csv = "medicion_glucosa.csv"
     df.to_csv(output_csv, index=False, encoding='utf-8-sig')
 
@@ -95,6 +97,4 @@ async def procesar_imagen(file: UploadFile = File(...)):
     output_image = "resultado.png"
     cv2.imwrite(output_image, image_contour)
 
-    # Retornar el archivo CSV (podrías devolver también la imagen si quieres)
     return FileResponse(output_csv, filename="medicion_glucosa.csv")
-
