@@ -86,7 +86,7 @@ async def procesar_imagen(
         minutos = i
         horas = minutos // 60
         minutos_restantes = minutos % 60
-        time_labels.append(f"{horas:02d}:{minutos_restantes:02d}")
+        time_labels.append(f"{date} {horas:02d}:{minutos_restantes:02d}")
 
     niveles_glucosa = [int((4450 - y) / 12) for (x, y) in intersections]
 
@@ -111,14 +111,20 @@ async def procesar_imagen(
     cv2.imwrite(output_image, image_contour)
 
     contenido_csv = output_csv
-    # Guardar localmente (opcional)
-    csv_bytes = df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
 
     # Nombre único para Supabase
+    
     nombre_unico = f"{user_id}_{uuid.uuid4().hex}.csv"
 
+    # Guardar localmente (opcional)
+    local_csv = f"1.csv"
+    df.to_csv(local_csv, index=False, encoding='utf-8-sig')
+
+
+
     try:
-        upload_result = supabase.storage.from_('csvhistorical').upload(nombre_unico, csv_bytes)
+        with open(local_csv, "rb") as f:
+            upload_result = supabase.storage.from_("csvhistorical").upload(nombre_unico, f,file_options={"content-type":"text/csv"})
         public_url = supabase.storage.from_('csvhistorical').get_public_url(nombre_unico)    
         # Obtener fecha y hora actual+
         print(id)
