@@ -1,17 +1,30 @@
 from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import PlainTextResponse
 import cv2
 import numpy as np
 import pandas as pd
 from PIL import Image
 import io
+from supabase import create_client, Client
+import uuid
+from datetime import datetime
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI()
 
 @app.post("/procesar_imagen")
 async def procesar_imagen(
     file: UploadFile = File(...),
-    user_id: str = Form(...)  # se recibe desde el formulario HTTP
+    user_id: str = Form(...),  # se recibe desde el formulario HTTP
+    id:str = Form(...),
+    date:str = Form(...)
 ):
     # Leer la imagen desde la solicitud
     contents = await file.read()
@@ -97,4 +110,29 @@ async def procesar_imagen(
     output_image = "resultado.png"
     cv2.imwrite(output_image, image_contour)
 
-    return FileResponse(output_csv, filename="medicion_glucosa.csv")
+    contenido_csv = output_csv
+    # Guardar localmente (opcional)
+    csv_bytes = df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+
+    # Nombre único para Supabase
+    nombre_unico = f"{user_id}_{uuid.uuid4().hex}.csv"
+
+    try:
+        upload_result = supabase.storage.from_('csvhistorical').upload(nombre_unico, csv_bytes)
+        public_url = supabase.storage.from_('csvhistorical').get_public_url(nombre_unico)    
+        # Obtener fecha y hora actual+
+        print(id)
+        ahora = datetime.now()
+        # Formatear como "YYYY-MM-DD HH:MM:SS"
+        fecha_formateada = ahora.strftime("%Y-%m-%d %H:%M:%S")
+        response = (
+        supabase.table("historical_graphs_csv")
+        .insert({"id": id, "user_id": user_id,"csv_link":public_url,"create_at":fecha_formateada,"date_record":date})
+        .execute()
+)
+        return PlainTextResponse(str(response.data))
+
+    except Exception as e:
+        return PlainTextResponse(f"Error al subir: {str(e)}")
+
+    

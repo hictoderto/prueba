@@ -5,3 +5,7 @@ pillow
 opencv-python
 matplotlib
 pandas
+numpy
+opencv-python
+supabase
+python-dotenv
