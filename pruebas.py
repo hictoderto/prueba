@@ -80,19 +80,37 @@ async def procesar_imagen(
                 intersections.append((x, new_y))
                 break
 
+    if len(intersections) == 0:
+            return PlainTextResponse("Imagen inválida o sin datos detectables.", status_code=422)
+
     # Crear etiquetas de tiempo y calcular glucosa
+    try:
+        date_obj = datetime.strptime(date, "%Y/%m/%d")  # si viene yyyy/mm/dd
+    except ValueError:
+        date_obj = datetime.strptime(date, "%y/%m/%d")  # si viene yy/mm/dd
+
+    date_formatted = date_obj.strftime("%d/%m/%Y")
     time_labels = []
     for i, (x, y) in enumerate(intersections):
         minutos = i
         horas = minutos // 60
         minutos_restantes = minutos % 60
-        time_labels.append(f"{date} {horas:02d}:{minutos_restantes:02d}")
+        time_labels.append(f"{date_formatted} {horas:02d}:{minutos_restantes:02d}")
 
     niveles_glucosa = [int((4450 - y) / 12) for (x, y) in intersections]
 
+    # UUID base
+    base_uuid = "00000090-0000-4000-8000-000000000050"
+
+    # Convertir el UUID base a entero
+    base_int = int(uuid.UUID(base_uuid))
+
+    # Generar UUIDs secuenciales
+    uuid_list = [str(uuid.UUID(int=base_int + i)) for i in range(len(intersections))]
+
     # Crear DataFrame con las columnas requeridas
     df = pd.DataFrame({
-        "id": range(1, len(intersections) + 1),
+        "id": uuid_list,
         "user_id": user_id,
         "timestamp": time_labels,
         "glucose_level": niveles_glucosa
@@ -109,8 +127,6 @@ async def procesar_imagen(
 
     output_image = "resultado.png"
     cv2.imwrite(output_image, image_contour)
-
-    contenido_csv = output_csv
 
     # Nombre único para Supabase
     
