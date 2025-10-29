@@ -23,7 +23,6 @@ app = FastAPI()
 async def procesar_imagen(
     file: UploadFile = File(...),
     user_id: str = Form(...),  # se recibe desde el formulario HTTP
-    id:str = Form(...),
     date:str = Form(...)
 ):
     # Leer la imagen desde la solicitud
@@ -143,13 +142,19 @@ async def procesar_imagen(
             upload_result = supabase.storage.from_("csvhistorical").upload(nombre_unico, f,file_options={"content-type":"text/csv"})
         public_url = supabase.storage.from_('csvhistorical').get_public_url(nombre_unico)    
         # Obtener fecha y hora actual+
-        print(id)
         ahora = datetime.now()
         # Formatear como "YYYY-MM-DD HH:MM:SS"
         fecha_formateada = ahora.strftime("%Y-%m-%d %H:%M:%S")
+        response = supabase.table("historical_graphs_csv").select("id").order("id", desc=True).limit(1).execute()
+        data = response.data
+        if data:
+            max_id = data[0]["id"]
+            nuevo_id = max_id + 1
+        else:
+            nuevo_id = 1  # Si la tabla está vacía
         response = (
         supabase.table("historical_graphs_csv")
-        .insert({"id": id, "user_id": user_id,"csv_link":public_url,"create_at":fecha_formateada,"date_record":date})
+        .insert({"id": nuevo_id, "user_id": user_id,"csv_link":public_url,"create_at":fecha_formateada,"date_record":date})
         .execute()
 )
         return PlainTextResponse(str(response.data))
